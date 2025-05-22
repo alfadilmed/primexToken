@@ -10,6 +10,7 @@ import Register from './pages/Register';
 import Login from './pages/Login';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import SmartContractGenerator from './pages/SmartContractGenerator'; // Import the new page
 
 const App: React.FC = () => {
   return (
@@ -24,6 +25,7 @@ const App: React.FC = () => {
             <Route path="templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
             <Route path="deploy" element={<ProtectedRoute><Deploy /></ProtectedRoute>} />
             <Route path="profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="generator" element={<ProtectedRoute><SmartContractGenerator /></ProtectedRoute>} /> 
           </Route>
         </Routes>
       </BrowserRouter>

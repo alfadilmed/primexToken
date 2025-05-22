@@ -20,6 +20,7 @@ const Navbar: React.FC = () => {
             <>
               <Link to="/editor" className="text-blue-600 hover:text-blue-800">Editor</Link>
               <Link to="/templates" className="text-blue-600 hover:text-blue-800">Templates</Link>
+              <Link to="/generator" className="text-blue-600 hover:text-blue-800">Generator</Link> {/* Added Generator link */}
               <Link to="/deploy" className="text-blue-600 hover:text-blue-800">Deploy</Link>
             </>
           )}

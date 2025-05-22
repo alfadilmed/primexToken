@@ -1,3 +1,4 @@
+export const ERC20TemplateString = `
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
@@ -51,3 +52,4 @@ contract ERC20Template {
         return true;
     }
 }
+`;

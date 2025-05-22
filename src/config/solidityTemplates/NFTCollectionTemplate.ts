@@ -1,3 +1,4 @@
+export const NFTCollectionTemplateString = `
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
@@ -107,3 +108,4 @@ contract NFTCollectionTemplate {
         revert("ERC721Enumerable: owner index out of bounds");
     }
 }
+`;
