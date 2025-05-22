@@ -6,20 +6,28 @@ import Editor from './pages/Editor';
 import Templates from './pages/Templates';
 import Deploy from './pages/Deploy';
 import Profile from './pages/Profile';
+import Register from './pages/Register';
+import Login from './pages/Login';
+import { AuthProvider } from './contexts/AuthContext';
+import ProtectedRoute from './components/auth/ProtectedRoute';
 
 const App: React.FC = () => {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Dashboard />} />
-          <Route path="editor" element={<Editor />} />
-          <Route path="templates" element={<Templates />} />
-          <Route path="deploy" element={<Deploy />} />
-          <Route path="profile" element={<Profile />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/" element={<Layout />}>
+            <Route index element={<Dashboard />} />
+            <Route path="editor" element={<ProtectedRoute><Editor /></ProtectedRoute>} />
+            <Route path="templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
+            <Route path="deploy" element={<ProtectedRoute><Deploy /></ProtectedRoute>} />
+            <Route path="profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 };
 
