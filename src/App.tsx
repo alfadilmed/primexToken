@@ -10,25 +10,28 @@ import Register from './pages/Register';
 import Login from './pages/Login';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
-import SmartContractGenerator from './pages/SmartContractGenerator'; // Import the new page
+import SmartContractGenerator from './pages/SmartContractGenerator';
+import { Web3Provider } from './contexts/Web3Context'; // Import Web3Provider
 
 const App: React.FC = () => {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/" element={<Layout />}>
-            <Route index element={<Dashboard />} />
-            <Route path="editor" element={<ProtectedRoute><Editor /></ProtectedRoute>} />
-            <Route path="templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
-            <Route path="deploy" element={<ProtectedRoute><Deploy /></ProtectedRoute>} />
-            <Route path="profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-            <Route path="generator" element={<ProtectedRoute><SmartContractGenerator /></ProtectedRoute>} /> 
-          </Route>
-        </Routes>
-      </BrowserRouter>
+      <Web3Provider> {/* Wrap with Web3Provider */}
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/" element={<Layout />}>
+              <Route index element={<Dashboard />} />
+              <Route path="editor" element={<ProtectedRoute><Editor /></ProtectedRoute>} />
+              <Route path="templates" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
+              <Route path="deploy" element={<ProtectedRoute><Deploy /></ProtectedRoute>} />
+              <Route path="profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+              <Route path="generator" element={<ProtectedRoute><SmartContractGenerator /></ProtectedRoute>} /> 
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </Web3Provider>
     </AuthProvider>
   );
 };

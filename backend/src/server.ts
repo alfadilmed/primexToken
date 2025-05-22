@@ -25,10 +25,13 @@ import userRoutes from './routes/userRoutes';
 
 import templateRoutes from './routes/templateRoutes'; // Adjust path
 
+import deploymentRoutes from './routes/deploymentRoutes'; // Adjust path
+
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/templates', templateRoutes);
+app.use('/api/deployments', deploymentRoutes);
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
