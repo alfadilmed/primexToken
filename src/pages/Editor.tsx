@@ -10,11 +10,23 @@ import { ICanvasComponent } from '../../types/editor'; // Adjusted path
 import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core';
 import { ICanvasComponent, IPaletteItem } from '../../types/editor';
 import { arrayMove } from '@dnd-kit/sortable';
-import { v4 as uuidv4 } from 'uuid';
-import { paletteItems } from '../../config/editorConfig'; // Import paletteItems
+import { v4 as uuidv4 } from 'uuid'; // Ensure uuid is imported
+import { paletteItems } from '../../config/editorConfig';
+import { useLocation } from 'react-router-dom'; // Import useLocation
 
 const Editor: React.FC = () => {
-  const [canvasComponents, setCanvasComponents] = useState<ICanvasComponent[]>([]);
+  const location = useLocation();
+  const [canvasComponents, setCanvasComponents] = useState<ICanvasComponent[]>(() => {
+    const templateData = location.state?.templateEditorData as ICanvasComponent[] | undefined;
+    if (templateData && Array.isArray(templateData)) {
+      // Regenerate IDs for components from template
+      return templateData.map(component => ({
+        ...component,
+        id: uuidv4(),
+      }));
+    }
+    return []; // Default to empty if no template data
+  });
   const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
 
   const handleSelectComponent = (id: string) => {

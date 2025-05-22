@@ -23,9 +23,12 @@ app.get('/api/health', (req, res) => {
 
 import userRoutes from './routes/userRoutes';
 
+import templateRoutes from './routes/templateRoutes'; // Adjust path
+
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/templates', templateRoutes);
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
