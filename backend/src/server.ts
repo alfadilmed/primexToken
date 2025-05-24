@@ -26,12 +26,14 @@ import userRoutes from './routes/userRoutes';
 import templateRoutes from './routes/templateRoutes'; // Adjust path
 
 import deploymentRoutes from './routes/deploymentRoutes'; // Adjust path
+import generatorRoutes from './routes/generatorRoutes'; // Added for generator
 
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/templates', templateRoutes);
 app.use('/api/deployments', deploymentRoutes);
+app.use('/api/generator', generatorRoutes); // Added for generator
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
