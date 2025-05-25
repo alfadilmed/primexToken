@@ -21,5 +21,7 @@ export interface ICanvasComponent {
   name: string; // User-friendly name, can be from IPaletteItem.name
   x: number;    // X coordinate on the canvas
   y: number;    // Y coordinate on the canvas
-  properties: Record<string, any>; // Component-specific properties
+  width: number;  // Width of the component
+  height: number; // Height of the component
+  properties: Record<string, any>; // Component-specific properties (e.g., text, color)
 }

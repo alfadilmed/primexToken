@@ -1,18 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react'; // Added useRef
 import ComponentPalette from '../../components/editor/ComponentPalette';
 import Canvas from '../../components/editor/Canvas';
 import PropertiesPanel from '../../components/editor/PropertiesPanel';
-import { DndContext, DragEndEvent, DragStartEvent, closestCenter } from '@dnd-kit/core'; // Added DragStartEvent
+import { DndContext, DragEndEvent, DragStartEvent, DragMoveEvent, closestCenter } from '@dnd-kit/core'; // Added DragMoveEvent
 import { ICanvasComponent, IPaletteItem } from '../../types/editor';
 import { useEditorHistory, EditorCanvasState } from '../hooks/useEditorHistory';
 import { snapToGridValue, getHorizontalAlignmentGuides, getVerticalAlignmentGuides, Rect, Guide } from '../utils/editorMath';
-// import { arrayMove } from '@dnd-kit/sortable'; // Not used for free-form drag
 import { v4 as uuidv4 } from 'uuid';
 import { paletteItems } from '../../config/editorConfig';
 import { useLocation } from 'react-router-dom';
 
+const MIN_COMPONENT_WIDTH = 20;
+const MIN_COMPONENT_HEIGHT = 20;
+const DEFAULT_NEW_COMPONENT_WIDTH = 150;
+const DEFAULT_NEW_COMPONENT_HEIGHT = 50;
+
 const Editor: React.FC = () => {
   const location = useLocation();
+  // const canvasRef = useRef<HTMLDivElement>(null); // Not strictly needed for the simplified handleDragMove
   
   const initialCanvasState: EditorCanvasState = (() => {
     const templateData = location.state?.templateEditorData as ICanvasComponent[] | undefined;
@@ -22,6 +27,8 @@ const Editor: React.FC = () => {
         id: uuidv4(),
         x: component.x || 0, 
         y: component.y || 0,
+        width: component.width || DEFAULT_NEW_COMPONENT_WIDTH,
+        height: component.height || DEFAULT_NEW_COMPONENT_HEIGHT,
       }));
     }
     return [];
@@ -38,22 +45,27 @@ const Editor: React.FC = () => {
 
   const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
 
-  // Grid and snapping states
   const [showGrid, setShowGrid] = useState(true);
   const [snapToGrid, setSnapToGrid] = useState(true);
   const [snapToGuides, setSnapToGuides] = useState(true);
   const [gridSize, setGridSize] = useState(20);
   const [alignmentTolerance] = useState(5);
-  const [activeGuides, setActiveGuides] = useState<Guide[]>([]); // State for active guides
+  const [activeGuides, setActiveGuides] = useState<Guide[]>([]);
 
   const handleSelectComponent = (id: string) => {
     setSelectedComponentId(id);
-    setActiveGuides([]); // Clear guides when selecting a component
+    setActiveGuides([]);
   };
 
   const handlePropertyChange = (componentId: string, propertyName: string, newValue: any) => {
     const newCanvasComponents = canvasComponents.map(component => {
         if (component.id === componentId) {
+          if (propertyName === 'width') {
+            return { ...component, width: Math.max(MIN_COMPONENT_WIDTH, Number(newValue)) };
+          }
+          if (propertyName === 'height') {
+            return { ...component, height: Math.max(MIN_COMPONENT_HEIGHT, Number(newValue)) };
+          }
           return { ...component, properties: { ...component.properties, [propertyName]: newValue } };
         }
         return component;
@@ -62,16 +74,78 @@ const Editor: React.FC = () => {
   };
 
   const handleDragStart = (event: DragStartEvent) => {
-    setActiveGuides([]); // Clear guides when a new drag starts
-    // Optionally, if you want to de-select component on drag start:
-    // setSelectedComponentId(null); 
+    setActiveGuides([]);
   };
+  
+  const handleDragMove = (event: DragMoveEvent) => {
+    const { active, delta } = event;
+    let currentActiveGuides: Guide[] = [];
+  
+    // Only calculate guides if snapToGuides is enabled and it's an existing component being moved
+    if (snapToGuides && active.data.current?.type !== 'resize' && !active.id.toString().startsWith('palette-')) {
+      const activeComponent = canvasComponents.find(c => c.id === active.id);
+  
+      if (activeComponent) { 
+        const currentX = activeComponent.x + delta.x; // Approximate current position
+        const currentY = activeComponent.y + delta.y;
+  
+        const draggedRect: Rect = {
+          x: currentX,
+          y: currentY,
+          width: activeComponent.width,
+          height: activeComponent.height,
+        };
+  
+        const staticRects: Rect[] = canvasComponents
+          .filter(c => c.id !== active.id)
+          .map(c => ({ x: c.x, y: c.y, width: c.width, height: c.height }));
+      
+        const hGuides = getHorizontalAlignmentGuides(draggedRect, staticRects, alignmentTolerance);
+        const vGuides = getVerticalAlignmentGuides(draggedRect, staticRects, alignmentTolerance);
+        currentActiveGuides.push(...hGuides, ...vGuides);
+      }
+    }
+    setActiveGuides(currentActiveGuides);
+  };
+
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over, delta, activatorEvent } = event;
-    const DEFAULT_WIDTH = 100; // Fallback width for new components or those without width prop
-    const DEFAULT_HEIGHT = 50;  // Fallback height
-    const currentActiveGuides: Guide[] = []; // Store guides that caused a snap for this drag
+    // Use the guides calculated during the last handleDragMove for final snapping
+    const finalActiveGuidesForOperation: Guide[] = [...activeGuides]; 
+    setActiveGuides([]); // Clear for next drag operation
+
+    // Check if this is a resize operation
+    if (active.data.current?.type === 'resize') {
+      const componentId = active.data.current.componentId as string;
+      
+      setCanvasComponentsWithHistory(
+        canvasComponents.map(component => {
+          if (component.id === componentId) {
+            let newWidth = component.width + delta.x;
+            let newHeight = component.height + delta.y;
+
+            newWidth = Math.max(MIN_COMPONENT_WIDTH, newWidth);
+            newHeight = Math.max(MIN_COMPONENT_HEIGHT, newHeight);
+            
+            if (snapToGrid) { 
+              let finalRight = component.x + newWidth;
+              let finalBottom = component.y + newHeight;
+
+              finalRight = snapToGridValue(finalRight, gridSize);
+              finalBottom = snapToGridValue(finalBottom, gridSize);
+              
+              newWidth = Math.max(MIN_COMPONENT_WIDTH, finalRight - component.x);
+              newHeight = Math.max(MIN_COMPONENT_HEIGHT, finalBottom - component.y);
+            }
+
+            return { ...component, width: newWidth, height: newHeight };
+          }
+          return component;
+        })
+      );
+      return; 
+    }
 
     // Scenario 1: Dragging from Palette to Canvas
     if (over && over.id === 'canvas-droppable-area' && active.id.toString().startsWith('palette-')) {
@@ -79,8 +153,9 @@ const Editor: React.FC = () => {
       if (paletteItemData) {
         let initialX = 0;
         let initialY = 0;
-
+        
         const canvasNodeRect = (over.node as HTMLElement)?.getBoundingClientRect();
+
         if (canvasNodeRect && (activatorEvent instanceof MouseEvent || activatorEvent instanceof TouchEvent)) {
            const clientX = activatorEvent instanceof MouseEvent ? activatorEvent.clientX : activatorEvent.touches[0].clientX;
            const clientY = activatorEvent instanceof MouseEvent ? activatorEvent.clientY : activatorEvent.touches[0].clientY;
@@ -91,15 +166,21 @@ const Editor: React.FC = () => {
            initialY = 50 + (canvasComponents.length % 10) * (gridSize / 2);
         }
         
-        const newComponentWidth = paletteItemData.defaultProperties.width || DEFAULT_WIDTH;
-        const newComponentHeight = paletteItemData.defaultProperties.height || DEFAULT_HEIGHT;
+        const newComponentWidth = paletteItemData.defaultProperties?.width || DEFAULT_NEW_COMPONENT_WIDTH;
+        const newComponentHeight = paletteItemData.defaultProperties?.height || DEFAULT_NEW_COMPONENT_HEIGHT;
+        
+        const newProperties = { ...paletteItemData.defaultProperties };
+        delete newProperties.width;
+        delete newProperties.height;
 
         if (snapToGuides) {
+          // For new components, guides are calculated based on initial drop, not live during drag from palette.
+          // So, we re-calculate guides here for the final drop position.
           const draggedRect: Rect = { x: initialX, y: initialY, width: newComponentWidth, height: newComponentHeight };
           const staticRects: Rect[] = canvasComponents.map(c => ({
             x: c.x, y: c.y,
-            width: c.properties.width || DEFAULT_WIDTH,
-            height: c.properties.height || DEFAULT_HEIGHT,
+            width: c.width, 
+            height: c.height,
           }));
 
           const hGuides = getHorizontalAlignmentGuides(draggedRect, staticRects, alignmentTolerance);
@@ -125,11 +206,11 @@ const Editor: React.FC = () => {
 
           if (closestHGuide && closestHGuide.snapOffset !== undefined) {
             initialY -= closestHGuide.snapOffset;
-            currentActiveGuides.push(closestHGuide);
+            // finalActiveGuidesForOperation.push(closestHGuide); // Not needed here as handleDragMove sets them
           }
           if (closestVGuide && closestVGuide.snapOffset !== undefined) {
             initialX -= closestVGuide.snapOffset;
-            currentActiveGuides.push(closestVGuide);
+            // finalActiveGuidesForOperation.push(closestVGuide);
           }
         }
         
@@ -144,7 +225,9 @@ const Editor: React.FC = () => {
           name: paletteItemData.name,
           x: initialX,
           y: initialY,
-          properties: { ...paletteItemData.defaultProperties, width: newComponentWidth, height: newComponentHeight }, // Ensure width/height are part of props
+          width: newComponentWidth, 
+          height: newComponentHeight,
+          properties: newProperties,
         };
         setCanvasComponentsWithHistory([...canvasComponents, newComponent]);
       }
@@ -160,47 +243,42 @@ const Editor: React.FC = () => {
             let newY = component.y + delta.y;
 
             if (snapToGuides) {
-              const draggedRect: Rect = {
-                x: newX, y: newY,
-                width: component.properties.width || DEFAULT_WIDTH,
-                height: component.properties.height || DEFAULT_HEIGHT,
-              };
-              const staticRects: Rect[] = canvasComponents
-                .filter(c => c.id !== activeId)
-                .map(c => ({
-                  x: c.x, y: c.y,
-                  width: c.properties.width || DEFAULT_WIDTH,
-                  height: c.properties.height || DEFAULT_HEIGHT,
-                }));
-              
-              const hGuides = getHorizontalAlignmentGuides(draggedRect, staticRects, alignmentTolerance);
-              const vGuides = getVerticalAlignmentGuides(draggedRect, staticRects, alignmentTolerance);
+              // Use guides that were active at the end of the move (from finalActiveGuidesForOperation before clearing)
+              const hGuidesToSnap = finalActiveGuidesForOperation.filter(g => g.type === 'horizontal');
+              const vGuidesToSnap = finalActiveGuidesForOperation.filter(g => g.type === 'vertical');
               
               let closestHGuide: Guide | null = null;
               let minHDist = alignmentTolerance + 1;
-              hGuides.forEach(guide => {
-                if (guide.snapOffset !== undefined && Math.abs(guide.snapOffset) < minHDist) {
-                  minHDist = Math.abs(guide.snapOffset);
-                  closestHGuide = guide;
-                }
+              hGuidesToSnap.forEach(guide => {
+                 // The snapOffset is how far the current position (newX, newY) is from the guide.
+                 // We need to adjust newY by this offset.
+                const currentDraggedY = component.y + delta.y; // Position before any snapping in this step
+                const distToGuideEdge = currentDraggedY - (guide.position - (guide.snapOffset || 0));
+                 if (Math.abs(distToGuideEdge) < minHDist) { // Check if this guide is the closest one for the current axis
+                     minHDist = Math.abs(distToGuideEdge);
+                     closestHGuide = guide;
+                 }
               });
 
               let closestVGuide: Guide | null = null;
               let minVDist = alignmentTolerance + 1;
-              vGuides.forEach(guide => {
-                if (guide.snapOffset !== undefined && Math.abs(guide.snapOffset) < minVDist) {
-                  minVDist = Math.abs(guide.snapOffset);
-                  closestVGuide = guide;
+              vGuidesToSnap.forEach(guide => {
+                const currentDraggedX = component.x + delta.x; // Position before any snapping in this step
+                 if (Math.abs(currentDraggedX - (guide.position - (guide.snapOffset || 0))) < minVDist ) {
+                     minVDist = Math.abs(currentDraggedX - (guide.position - (guide.snapOffset || 0)));
+                     closestVGuide = guide;
                 }
               });
-
+              
               if (closestHGuide && closestHGuide.snapOffset !== undefined) {
-                newY -= closestHGuide.snapOffset;
-                currentActiveGuides.push(closestHGuide);
+                // Apply the offset that was determined during dragMove
+                // newY is the position *after* guide snapping has been applied in handleDragMove
+                // So, if a guide was active, newY (from handleDragMove's perspective) was already adjusted.
+                // Here, we're taking component.y + delta.y (raw final position) and re-applying the snap based on the *closest* guide found during move.
+                newY = component.y + delta.y - closestHGuide.snapOffset;
               }
               if (closestVGuide && closestVGuide.snapOffset !== undefined) {
-                newX -= closestVGuide.snapOffset;
-                currentActiveGuides.push(closestVGuide);
+                newX = component.x + delta.x - closestVGuide.snapOffset;
               }
             }
 
@@ -215,18 +293,16 @@ const Editor: React.FC = () => {
         })
       );
     }
-    setActiveGuides(currentActiveGuides); // Set active guides for rendering
-    // Consider clearing guides after a short timeout if they should only be temporarily visible
-    // setTimeout(() => setActiveGuides([]), 1000); // Example: clear after 1 second
+    // setActiveGuides(finalActiveGuidesForOperation); // This line was for populating guides at end, now handled by handleDragMove
   };
-
+  
   const handleCanvasClick = () => {
     setSelectedComponentId(null);
-    setActiveGuides([]); // Also clear guides when clicking canvas background
+    setActiveGuides([]);
   };
 
   return (
-    <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd} collisionDetection={closestCenter}>
+    <DndContext onDragStart={handleDragStart} onDragMove={handleDragMove} onDragEnd={handleDragEnd} collisionDetection={closestCenter}>
       <div className="flex flex-col h-screen">
         <div className="p-2 border-b flex items-center space-x-4">
           <div>
@@ -294,7 +370,7 @@ const Editor: React.FC = () => {
           <div className="w-64 h-full overflow-y-auto">
             <ComponentPalette />
           </div>
-          <div className="flex-grow h-full overflow-y-auto">
+          <div className="flex-grow h-full overflow-y-auto"> {/* Removed canvasRef from here */}
             <Canvas
               canvasComponents={canvasComponents}
               selectedComponentId={selectedComponentId}
@@ -302,8 +378,8 @@ const Editor: React.FC = () => {
               showGrid={showGrid}
               snapToGrid={snapToGrid}
               gridSize={gridSize}
-              activeGuides={activeGuides} // Pass active guides to Canvas
-              onCanvasClick={handleCanvasClick} // Pass handler for canvas background click
+              activeGuides={activeGuides}
+              onCanvasClick={handleCanvasClick}
             />
           </div>
           <div className="w-72 h-full overflow-y-auto">
