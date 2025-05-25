@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import User, { IUser } from '../models/User';
+import logger from '../config/logger'; // Added logger import
 
 export const getCurrentUser = async (req: Request, res: Response) => {
   if (req.user) {
@@ -45,7 +46,14 @@ export const linkWalletAddress = async (req: Request, res: Response) => {
 
     res.status(200).json(updatedUser);
   } catch (error: any) {
-    console.error('Error linking wallet address:', error);
+    logger.error('Error linking wallet address', {
+      userId: userId,
+      walletAddress: walletAddress,
+      message: error.message,
+      stack: error.stack,
+      errorCode: error.code, // Include error code if available
+      keyPattern: error.keyPattern // Include keyPattern for duplicate errors
+    });
     // Handle potential duplicate key error for walletAddress if not handled by the above check
     if (error.code === 11000 && error.keyPattern && error.keyPattern.walletAddress) {
         return res.status(400).json({ message: 'This wallet address is already in use.' });

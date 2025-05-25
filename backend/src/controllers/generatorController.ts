@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { GeneratorService, PlaceholderValues } from '../services/generatorService';
+import logger from '../config/logger'; // Added logger import
 
 const generatorService = new GeneratorService();
 
@@ -38,7 +39,13 @@ export const compileSolidityTemplate = async (req: Request, res: Response) => {
     );
     res.status(200).json({ abi: result.abi, bytecode: result.bytecode });
   } catch (error: any) {
-    console.error('Error during Solidity compilation request:', error); // Server-side log
+    // Log the error with more context, being mindful of sensitive data in req.body in production
+    logger.error('Error during Solidity compilation request', { 
+      message: error.message, 
+      stack: error.stack, 
+      // Consider redacting or selectively logging parts of req.body if it contains sensitive info
+      requestBody: req.body 
+    });
 
     // Check for specific error messages from GeneratorService
     if (error.message && 

@@ -19,5 +19,7 @@ export interface ICanvasComponent {
   id: string; // Unique instance ID
   type: string; // Matches IPaletteItem.componentType
   name: string; // User-friendly name, can be from IPaletteItem.name
-  properties: Record<string, any>;
+  x: number;    // X coordinate on the canvas
+  y: number;    // Y coordinate on the canvas
+  properties: Record<string, any>; // Component-specific properties
 }

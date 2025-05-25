@@ -22,7 +22,7 @@ contract ERC20Template is ERC20 {
         uint256 initialSupply_ // Corresponds to %%INITIAL_SUPPLY%% (in whole tokens)
     ) ERC20(name_, symbol_) {
         // _mint expects the amount in the smallest unit (wei for 18 decimals)
-        // initialSupply_ is provided as whole tokens, so we multiply by 10^decimals()
+        // initialSupply_ is provided as whole tokens, so we multiply by 10**decimals()
         _mint(msg.sender, initialSupply_ * (10**decimals()));
     }
 }

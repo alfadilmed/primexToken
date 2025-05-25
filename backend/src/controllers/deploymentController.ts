@@ -1,5 +1,6 @@
 import Deployment from '../models/Deployment'; // Adjust path as necessary
 import { Request, Response } from 'express';
+import logger from '../config/logger'; // Added logger import
 
 // Assuming IUser is available on req.user via authMiddleware
 // interface AuthenticatedRequest extends Request { user?: { _id: string; /* other user props */ }; } // _id usually from Mongoose
@@ -44,8 +45,13 @@ export const createDeploymentRecord = async (req: Request, res: Response) => {
 
     const savedDeployment = await newDeployment.save();
     res.status(201).json(savedDeployment);
-  } catch (error) {
-    console.error("Error in createDeploymentRecord:", error); // Log the actual error on the server
+  } catch (error: any) {
+    logger.error('Error in createDeploymentRecord', {
+      userId: authenticatedReq.user?._id, // Log acting user if available
+      message: error.message,
+      stack: error.stack,
+      requestBody: req.body // Be cautious with logging sensitive data from req.body
+    });
     if (error instanceof Error) {
         res.status(500).json({ message: 'Error saving deployment record', error: error.message });
     } else {
@@ -62,8 +68,12 @@ export const getDeploymentsForUser = async (req: Request, res: Response) => {
     }
     const deployments = await Deployment.find({ userId: authenticatedReq.user._id }).sort({ deployedAt: -1 });
     res.status(200).json(deployments);
-  } catch (error) {
-    console.error("Error in getDeploymentsForUser:", error); // Log the actual error
+  } catch (error: any) {
+    logger.error('Error in getDeploymentsForUser', {
+      userId: authenticatedReq.user?._id, // Log acting user if available
+      message: error.message,
+      stack: error.stack
+    });
     if (error instanceof Error) {
         res.status(500).json({ message: 'Error fetching deployment records', error: error.message });
     } else {
